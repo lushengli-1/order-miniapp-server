@@ -12,6 +12,21 @@ async function getStoreInfo(req, res) {
   }
 }
 
+// 更新店铺信息
+async function updateStore(req, res) {
+  try {
+    const storeId = req.params.storeId || 1;
+    const { name, phone, address, notice, status } = req.body;
+    await pool.query(
+      'UPDATE stores SET name = ?, phone = ?, address = ?, notice = ?, status = ? WHERE id = ?',
+      [name, phone, address, notice, status ?? 1, storeId]
+    );
+    res.json(success(null, '保存成功'));
+  } catch (err) {
+    res.json(fail('保存失败'));
+  }
+}
+
 // 获取菜品分类
 async function getCategories(req, res) {
   try {
@@ -180,7 +195,11 @@ async function updateCategory(req, res) {
   try {
     const { id } = req.params;
     const { name, sort } = req.body;
-    await pool.query('UPDATE categories SET name = ?, sort = ? WHERE id = ?', [name, sort, id]);
+    if (sort !== undefined) {
+      await pool.query('UPDATE categories SET name = ?, sort = ? WHERE id = ?', [name, sort, id]);
+    } else {
+      await pool.query('UPDATE categories SET name = ? WHERE id = ?', [name, id]);
+    }
     res.json(success(null, '更新成功'));
   } catch (err) {
     res.json(fail('更新失败'));
@@ -203,7 +222,7 @@ async function deleteCategory(req, res) {
 }
 
 module.exports = {
-  getStoreInfo, getCategories, getDishes, getRecommendedDishes, searchDishes, getDishDetail,
+  getStoreInfo, updateStore, getCategories, getDishes, getRecommendedDishes, searchDishes, getDishDetail,
   merchantGetDishes, addDish, updateDish, deleteDish,
   merchantGetCategories, addCategory, updateCategory, deleteCategory
 };

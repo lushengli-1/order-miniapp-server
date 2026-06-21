@@ -49,7 +49,7 @@ async function createOrder(req, res) {
 
     // 插入订单
     const [orderResult] = await conn.query(
-      'INSERT INTO orders (order_no, user_id, store_id, total_amount, actual_amount, remark, table_no, status) VALUES (?, ?, ?, ?, ?, ?, ?, 1)',
+      'INSERT INTO orders (order_no, user_id, store_id, total_amount, actual_amount, remark, table_no, status) VALUES (?, ?, ?, ?, ?, ?, ?, 0)',
       [orderNo, userId, storeId, totalAmount, totalAmount, remark, table_no]
     );
 
@@ -147,7 +147,8 @@ async function cancelOrder(req, res) {
 // 商家获取订单列表
 async function merchantGetOrders(req, res) {
   try {
-    const { status, page, pageSize, offset } = getPagination(req.query);
+    const { status } = req.query;
+    const { page, pageSize, offset } = getPagination(req.query);
     let query = 'SELECT o.*, u.nickname FROM orders o LEFT JOIN users u ON o.user_id = u.id WHERE 1=1';
     const params = [];
 
@@ -170,14 +171,19 @@ async function merchantGetOrders(req, res) {
 async function updateOrderStatus(req, res) {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status: newStatus } = req.body;
 
+    // 获取订单当前状态
+    const [orders] = await pool.query('SELECT status FROM orders WHERE id = ?', [id]);
+    if (orders.length === 0) return res.json(fail('订单不存在'));
+
+    const currentStatus = orders[0].status;
     const validTransitions = { 1: 2, 2: 3 };
-    if (!validTransitions[status]) {
+    if (validTransitions[currentStatus] !== newStatus) {
       return res.json(fail('无效的状态变更'));
     }
 
-    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [status, id]);
+    await pool.query('UPDATE orders SET status = ? WHERE id = ?', [newStatus, id]);
     res.json(success(null, '更新成功'));
   } catch (err) {
     res.json(fail('更新失败'));
@@ -239,4 +245,20 @@ async function getStatistics(req, res) {
   }
 }
 
-module.exports = { createOrder, getUserOrders, getOrderDetail, cancelOrder, merchantGetOrders, updateOrderStatus, getStatistics };
+// 确认免单（替代支付）
+async function payOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const [orders] = await pool.query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [id, req.user.id]);
+    if (orders.length === 0) return res.json(fail('订单不存在'));
+    if (orders[0].status !== 0) return res.json(fail('当前状态无需确认'));
+
+    await pool.query('UPDATE orders SET status = 1 WHERE id = ?', [id]);
+    res.json(success({ order_id: parseInt(id) }, '免单成功！'));
+  } catch (err) {
+    console.error('免单确认失败:', err);
+    res.json(fail('操作失败'));
+  }
+}
+
+module.exports = { createOrder, getUserOrders, getOrderDetail, cancelOrder, payOrder, merchantGetOrders, updateOrderStatus, getStatistics };

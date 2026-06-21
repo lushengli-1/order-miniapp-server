@@ -39,6 +39,7 @@ router.post('/cart/clear', authRequired, cartController.clearCart);
 
 // ===== 订单（用户端） =====
 router.post('/order/create', authRequired, orderController.createOrder);
+router.post('/order/:id/pay', authRequired, orderController.payOrder);
 router.get('/order/list', authRequired, orderController.getUserOrders);
 router.get('/order/:id', authRequired, orderController.getOrderDetail);
 router.post('/order/:id/cancel', authRequired, orderController.cancelOrder);
@@ -57,6 +58,9 @@ router.get('/merchant/categories/:storeId?', authMerchant, dishController.mercha
 router.post('/merchant/category/add/:storeId?', authMerchant, dishController.addCategory);
 router.post('/merchant/category/update/:id', authMerchant, dishController.updateCategory);
 router.post('/merchant/category/delete/:id', authMerchant, dishController.deleteCategory);
+
+// 店铺管理
+router.post('/merchant/store/update/:storeId?', authMerchant, dishController.updateStore);
 
 // 订单管理
 router.get('/merchant/orders', authMerchant, orderController.merchantGetOrders);
